@@ -13,8 +13,8 @@ from detector2 import ParkingLotDetector
 import logging
 
 # Configuration
-API_KEYS_FILE = "API_KEYS"
-EXTERNAL_API_KEY_FILE = "EXTERNAL_KEY"
+TOKENS_FILE = "TOKENS"
+BACKEND_TOKEN_KEY_FILE = "BACKEND_TOKEN"
 MODEL_DIR = "./models"
 EXTERNAL_URL = "https://external-server.com/api/upload"
 BASE_CONFIG = {
@@ -33,8 +33,8 @@ def load_api_keys(file_path: str) -> set:
     with open(file_path, "r") as f:
         return {line.strip() for line in f}
 
-api_keys = load_api_keys(API_KEYS_FILE)
-external_api_key = load_api_keys(EXTERNAL_API_KEY_FILE).pop() if os.path.exists(EXTERNAL_API_KEY_FILE) else ""
+tokens = load_api_keys(TOKENS_FILE)
+backend_token = load_api_keys(BACKEND_TOKEN_KEY_FILE).pop() if os.path.exists(BACKEND_TOKEN_KEY_FILE) else ""
 
 # Global processing queue
 task_queue = queue.Queue()
@@ -98,7 +98,7 @@ def process_images():
                 "occupied": occupied_count,  # Используем occupied_count
                 "processing_time": processing_time,
                 "camera_id": task["camera_id"],
-                "api_key": external_api_key
+                "token": backend_token
             }
 
             # Send to external server
@@ -106,7 +106,7 @@ def process_images():
                 EXTERNAL_URL,
                 files=files,
                 data=data,
-                headers={"X-API-Key": external_api_key}
+                headers={"X-API-Key": backend_token}
             )
             response.raise_for_status()
 
@@ -119,7 +119,7 @@ def process_images():
 # API Endpoint
 @app.post("/process-image")
 async def process_image(
-        api_key: str,
+        token: str,
         camera_id: str,
         model: str = "yolov8n.pt",
         conf_thres: float = 0.45,
@@ -129,7 +129,7 @@ async def process_image(
         image: UploadFile = File(...),
 ):
     # Validate API key
-    if api_key not in api_keys:
+    if token not in tokens:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
