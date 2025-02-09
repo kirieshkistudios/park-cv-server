@@ -9,6 +9,8 @@ from PIL import Image, ImageTk
 from ultralytics import YOLO
 import AbstractParkingDetector
 from AIDetectors import SegmentationParkingDetector, BBoxParkingDetector
+from detector2 import ParkingLotDetector
+
 
 class ParkingLotApp(tk.Tk):
     def __init__(self):
@@ -171,6 +173,18 @@ class ParkingLotApp(tk.Tk):
         self.iou_slider.set(0.4)
         self.iou_slider.pack(side=tk.LEFT, padx=5)
 
+        # Occlusion Threshold slider
+        tk.Label(controls_frame, text="Occlusion %:").pack(side=tk.LEFT, padx=5)
+        self.occl_slider = tk.Scale(controls_frame, from_=0, to=1.0, resolution=0.01, orient=tk.HORIZONTAL)
+        self.occl_slider.set(0.3)
+        self.occl_slider.pack(side=tk.LEFT, padx=5)
+
+        # Class selection
+        tk.Label(controls_frame, text="Classes:").pack(side=tk.LEFT, padx=5)
+        self.classes_entry = tk.Entry(controls_frame, width=15)
+        self.classes_entry.insert(0, "2,5,7")
+        self.classes_entry.pack(side=tk.LEFT, padx=5)
+
         # Button to load the model
         load_model_btn = tk.Button(controls_frame, text="Load Model", command=self.load_model)
         load_model_btn.pack(side=tk.LEFT, padx=5)
@@ -195,20 +209,16 @@ class ParkingLotApp(tk.Tk):
         self.detector = None
 
     def load_model(self):
-        model_size = self.model_size_var.get()
-        detector_type = self.detector_type_var.get()
         try:
-            if detector_type == "Regular":
-                self.detector = BBoxParkingDetector(model_size=model_size,
-                                                    conf_thres=self.conf_slider.get(),
-                                                    iou_thres=self.iou_slider.get())
-            elif detector_type == "Segmentation":
-                self.detector = SegmentationParkingDetector(model_size=model_size,
-                                                            conf_thres=self.conf_slider.get(),
-                                                            iou_thres=self.iou_slider.get())
-            else:
-                raise ValueError("Invalid detector type selected.")
-            messagebox.showinfo("Success", f"{detector_type} model loaded with size '{model_size}'.")
+            classes = [int(c.strip()) for c in self.classes_entry.get().split(',')]
+            self.detector = ParkingLotDetector(
+                model_size=self.model_size_var.get(),
+                conf_thres=self.conf_slider.get(),
+                iou_thres=self.iou_slider.get(),
+                occl_thres=self.occl_slider.get(),
+                classes=classes
+            )
+            messagebox.showinfo("Success", "Model loaded with current settings")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load model: {e}")
 
@@ -263,6 +273,7 @@ class ParkingLotApp(tk.Tk):
         # Update thresholds from sliders
         self.detector.conf_thres = self.conf_slider.get()
         self.detector.iou_thres = self.iou_slider.get()
+        self.detector.occl_threshold = self.occl_slider.get()
 
         print("DEBUG: Evaluating image...")
         print(f"DEBUG: Confidence Threshold = {self.detector.conf_thres}")
