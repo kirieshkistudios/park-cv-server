@@ -212,7 +212,7 @@ class ParkingLotApp(tk.Tk):
         try:
             classes = [int(c.strip()) for c in self.classes_entry.get().split(',')]
             self.detector = ParkingLotDetector(
-                model_size=self.model_size_var.get(),
+                model=self.model_size_var.get(),
                 conf_thres=self.conf_slider.get(),
                 iou_thres=self.iou_slider.get(),
                 occl_thres=self.occl_slider.get(),

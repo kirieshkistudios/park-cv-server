@@ -62,10 +62,10 @@ class ParkingLotDetector:
 
     def detect_and_get_detections(self, frame):
         """
-        Выполняет детекцию автомобилей и определяет занятые парковочные места.
+        Выполняет детекцию автомобилей и определяет занятые и свободные парковочные места.
 
         :param frame: np.array - изображение OpenCV.
-        :return: tuple - множество занятых мест и список координат обнаруженных автомобилей.
+        :return: tuple - множество занятых мест, список координат обнаруженных автомобилей, количество занятых и свободных мест.
         """
         results = self.model.predict(frame, conf=self.conf_thres, iou=self.iou_thres, classes=self.classes,
                                      verbose=False)
@@ -78,7 +78,10 @@ class ParkingLotDetector:
             if occlusion >= self.occl_threshold:
                 occupied_spots.add(idx)
 
-        return occupied_spots, boxes.tolist()
+        total_spots = len(self.parking_areas)
+        free_spots = total_spots - len(occupied_spots)
+
+        return occupied_spots, boxes.tolist(), len(occupied_spots), free_spots
 
     def visualize_results(self, frame, occupied_spots, detections=None):
         """

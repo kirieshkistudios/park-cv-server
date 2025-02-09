@@ -255,3 +255,5 @@ fabric.properties
 train/
 models/
 datasets/
+
+API_KEYS
