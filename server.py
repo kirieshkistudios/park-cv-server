@@ -11,6 +11,8 @@ from typing import Optional
 from tempfile import NamedTemporaryFile
 from detector2 import ParkingLotDetector
 import logging
+from pydantic import BaseModel
+from typing import Optional, List
 
 # Configuration
 TOKENS_FILE = "TOKENS"
@@ -25,6 +27,13 @@ BASE_CONFIG = {
         ]
     }
 }
+
+class ConfigModel(BaseModel):
+    model: str = "yolov8n.pt"
+    conf_thres: float = 0.45
+    iou_thres: float = 0.4
+    occl_thres: float = 0.3
+    classes: Optional[List[int]] = [2, 5, 7]
 
 # Load API keys
 def load_api_keys(file_path: str) -> set:
@@ -119,14 +128,10 @@ def process_images():
 # API Endpoint
 @app.post("/process-image")
 async def process_image(
-        token: str,
-        camera_id: str,
-        model: str = "yolov8n.pt",
-        conf_thres: float = 0.45,
-        iou_thres: float = 0.4,
-        occl_thres: float = 0.3,
-        classes: Optional[str] = None,
-        image: UploadFile = File(...),
+    token: str,
+    camera_id: str,
+    config: ConfigModel = ConfigModel(),  # Используем модель с значениями по умолчанию
+    image: UploadFile = File(...),
 ):
     # Validate API key
     if token not in tokens:
@@ -136,19 +141,10 @@ async def process_image(
         )
 
     # Validate parameters
-    if not 0 <= conf_thres <= 1 or not 0 <= iou_thres <= 1 or not 0 <= occl_thres <= 1:
+    if not 0 <= config.conf_thres <= 1 or not 0 <= config.iou_thres <= 1 or not 0 <= config.occl_thres <= 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Thresholds must be between 0 and 1"
-        )
-
-    # Process classes
-    try:
-        class_list = [int(c) for c in classes.split(",")] if classes else None
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid classes format"
         )
 
     # Save image to temp file
@@ -166,11 +162,11 @@ async def process_image(
     # Add task to queue
     task = {
         "temp_path": temp_file.name,
-        "model": model,
-        "conf_thres": conf_thres,
-        "iou_thres": iou_thres,
-        "occl_thres": occl_thres,
-        "classes": class_list,
+        "model": config.model,
+        "conf_thres": config.conf_thres,
+        "iou_thres": config.iou_thres,
+        "occl_thres": config.occl_thres,
+        "classes": config.classes,
         "camera_id": camera_id
     }
 
