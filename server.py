@@ -35,6 +35,7 @@ class ConfigModel(BaseModel):
     iou_thres: float = 0.4
     occl_thres: float = 0.3
     classes: Optional[List[int]] = [2, 5, 7]
+    polygons: List[List[List[int]]]
 
 # Load API keys
 def load_api_keys(file_path: str) -> set:
@@ -80,6 +81,7 @@ def process_images():
             config = BASE_CONFIG.get(task["camera_id"], {})
             polygons = config.get("polygons", [])
 
+
             # Initialize detector
             detector = ParkingLotDetector(
                 model_dir=MODEL_DIR,
@@ -87,9 +89,9 @@ def process_images():
                 conf_thres=task["conf_thres"],
                 iou_thres=task["iou_thres"],
                 occl_thres=task["occl_thres"],
-                classes=task["classes"]
+                classes=task["classes"],
             )
-            detector.set_parking_areas(polygons)
+            detector.set_parking_areas(task["polygons"])
 
             # Process image
             start_time = time.time()
@@ -130,7 +132,7 @@ def process_images():
 async def process_image(
         token: str = Form(...),
         camera_id: str = Form(...),
-        config: str = Form(default=json.dumps(ConfigModel().model_dump())),  # Получаем как строку
+        config: str = Form(...),  # Получаем как строку
         image: UploadFile = File(...),
 ):
     logger.info(f"Received request: {token}, {camera_id}, {config}")
@@ -151,6 +153,7 @@ async def process_image(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
         )
+
 
     # Validate parameters
     if not 0 <= config_data.conf_thres <= 1 or not 0 <= config_data.iou_thres <= 1 or not 0 <= config_data.occl_thres <= 1:
@@ -181,7 +184,8 @@ async def process_image(
         "iou_thres": config_data.iou_thres,
         "occl_thres": config_data.occl_thres,
         "classes": config_data.classes,
-        "camera_id": camera_id
+        "camera_id": camera_id,
+        "polygons": config_data.polygons
     }
 
     with lock:
