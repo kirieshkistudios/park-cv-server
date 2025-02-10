@@ -1,3 +1,4 @@
+import json
 import os
 import cv2
 import numpy as np
@@ -6,7 +7,7 @@ import threading
 import queue
 import requests
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, HTTPException, status, Form
 from typing import Optional
 from tempfile import NamedTemporaryFile
 from detector2 import ParkingLotDetector
@@ -18,7 +19,7 @@ from typing import Optional, List
 TOKENS_FILE = "TOKENS"
 BACKEND_TOKEN_KEY_FILE = "BACKEND_TOKEN"
 MODEL_DIR = "./models"
-EXTERNAL_URL = "https://external-server.com/api/upload"
+EXTERNAL_URL = "http://127.0.0.1:8000/receive-image"
 BASE_CONFIG = {
     "camera1": {
         "polygons": [
@@ -114,8 +115,7 @@ def process_images():
             response = requests.post(
                 EXTERNAL_URL,
                 files=files,
-                data=data,
-                headers={"X-API-Key": backend_token}
+                data=data
             )
             response.raise_for_status()
 
@@ -128,20 +128,33 @@ def process_images():
 # API Endpoint
 @app.post("/process-image")
 async def process_image(
-    token: str,
-    camera_id: str,
-    config: ConfigModel = ConfigModel(),  # Используем модель с значениями по умолчанию
-    image: UploadFile = File(...),
+        token: str = Form(...),
+        camera_id: str = Form(...),
+        config: str = Form(default=json.dumps(ConfigModel().model_dump())),  # Получаем как строку
+        image: UploadFile = File(...),
 ):
+    logger.info(f"Received request: {token}, {camera_id}, {config}")
+
+    try:
+        # Парсим JSON-строку в модель
+        config_data = ConfigModel(**json.loads(json.loads(config)))
+    except Exception as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid config format: {str(e)}"
+        )
+
     # Validate API key
     if token not in tokens:
+        logger.error(f"Invalid token: {token}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key"
         )
 
     # Validate parameters
-    if not 0 <= config.conf_thres <= 1 or not 0 <= config.iou_thres <= 1 or not 0 <= config.occl_thres <= 1:
+    if not 0 <= config_data.conf_thres <= 1 or not 0 <= config_data.iou_thres <= 1 or not 0 <= config_data.occl_thres <= 1:
+        logger.error(f"Invalid thresholds: conf_thres={config_data.conf_thres}, iou_thres={config_data.iou_thres}, occl_thres={config_data.occl_thres}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Thresholds must be between 0 and 1"
@@ -154,6 +167,7 @@ async def process_image(
         temp_file.write(contents)
         temp_file.close()
     except Exception as e:
+        logger.error(f"Error handling file: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error handling file: {str(e)}"
@@ -162,15 +176,16 @@ async def process_image(
     # Add task to queue
     task = {
         "temp_path": temp_file.name,
-        "model": config.model,
-        "conf_thres": config.conf_thres,
-        "iou_thres": config.iou_thres,
-        "occl_thres": config.occl_thres,
-        "classes": config.classes,
+        "model": config_data.model,
+        "conf_thres": config_data.conf_thres,
+        "iou_thres": config_data.iou_thres,
+        "occl_thres": config_data.occl_thres,
+        "classes": config_data.classes,
         "camera_id": camera_id
     }
 
     with lock:
         task_queue.put(task)
 
+    logger.info(f"Task added to queue: camera_id={camera_id}, queue_size={task_queue.qsize()}")
     return {"message": "Image queued for processing", "queue_size": task_queue.qsize()}
