@@ -20,14 +20,6 @@ TOKENS_FILE = "TOKENS"
 BACKEND_TOKEN_KEY_FILE = "BACKEND_TOKEN"
 MODEL_DIR = "./models"
 EXTERNAL_URL = "http://127.0.0.1:8000/receive-image"
-BASE_CONFIG = {
-    "camera1": {
-        "polygons": [
-            [(100, 100), (200, 100), (200, 200), (100, 200)],
-            [(250, 100), (350, 100), (350, 200), (250, 200)]
-        ]
-    }
-}
 
 class ConfigModel(BaseModel):
     model: str = "yolov8n.pt"
@@ -76,10 +68,6 @@ def process_images():
             frame = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
             if frame is None:
                 raise ValueError("Invalid image data")
-
-            # Get camera configuration
-            config = BASE_CONFIG.get(task["camera_id"], {})
-            polygons = config.get("polygons", [])
 
 
             # Initialize detector
