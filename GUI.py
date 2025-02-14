@@ -7,8 +7,6 @@ from tkinter import filedialog, messagebox
 from tkinter import ttk
 from PIL import Image, ImageTk
 from ultralytics import YOLO
-import AbstractParkingDetector
-from AIDetectors import SegmentationParkingDetector, BBoxParkingDetector
 from detector2 import ParkingLotDetector
 
 
@@ -212,7 +210,7 @@ class ParkingLotApp(tk.Tk):
         try:
             classes = [int(c.strip()) for c in self.classes_entry.get().split(',')]
             self.detector = ParkingLotDetector(
-                model=self.model_size_var.get(),
+                model_size=self.model_size_var.get(),
                 conf_thres=self.conf_slider.get(),
                 iou_thres=self.iou_slider.get(),
                 occl_thres=self.occl_slider.get(),
@@ -280,7 +278,7 @@ class ParkingLotApp(tk.Tk):
         print(f"DEBUG: IOU Threshold = {self.detector.iou_thres}")
 
         # Run detection without any scaling
-        occupied, detections = self.detector.detect_and_get_detections(frame)
+        occupied, detections, _, _ = self.detector.detect_and_get_detections(frame)
         print(f"DEBUG: Occupied Spots: {occupied}")
 
         # Draw results on the original frame
