@@ -14,12 +14,12 @@ from detector2 import ParkingLotDetector
 import logging
 from pydantic import BaseModel
 from typing import Optional, List
+from server_config import EXTERNAL_URL
 
 # Configuration
 TOKENS_FILE = "TOKENS"
 BACKEND_TOKEN_KEY_FILE = "BACKEND_TOKEN"
 MODEL_DIR = "./models"
-EXTERNAL_URL = "http://127.0.0.1:8000/receive-image"
 
 class ConfigModel(BaseModel):
     model: str = "yolov8n.pt"
