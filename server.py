@@ -100,6 +100,7 @@ def process_images():
                 "camera_id": task["camera_id"],
                 "token": backend_token
             }
+            print(data)
 
             # Send to external server
             response = requests.post(
@@ -107,6 +108,7 @@ def process_images():
                 files=files,
                 data=data
             )
+            print(response.text)
             response.raise_for_status()
 
         except Exception as e:
